@@ -4,82 +4,38 @@ from datetime import datetime
 
 # Initialize Supabase client
 @st.cache_resource
-def init_supabase():
-    SUPABASE_URL = st.secrets["supabase_url"]
-    SUPABASE_KEY = st.secrets["supabase_key"]
-    client = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
+def init_supabase(url, key):
+    client = supabase.create_client(url, key)
     return client
-
-# Display SQL Script in sidebar
-def show_setup_instructions():
-    """Display SQL setup script for manual execution"""
-    with st.sidebar:
-        st.header("🔧 Setup Instructions")
-        
-        if st.checkbox("Show SQL Setup Script"):
-            st.subheader("Execute in Supabase SQL Editor:")
-            
-            sql_script = """-- Create fitness_classes table
-CREATE TABLE fitness_classes (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  class_name TEXT NOT NULL,
-  zip_code TEXT NOT NULL,
-  instructor TEXT NOT NULL,
-  time_slot TEXT NOT NULL,
-  description TEXT,
-  capacity INT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create index on zip_code for faster searches
-CREATE INDEX idx_fitness_classes_zip_code ON fitness_classes(zip_code);
-
--- Enable Row Level Security
-ALTER TABLE fitness_classes ENABLE ROW LEVEL SECURITY;
-
--- Create a policy to allow public read access
-CREATE POLICY "Allow public read access" ON fitness_classes
-  FOR SELECT
-  USING (true);
-
--- Create a policy to allow public insert
-CREATE POLICY "Allow public insert" ON fitness_classes
-  FOR INSERT
-  WITH CHECK (true);
-
--- Create a policy to allow public delete
-CREATE POLICY "Allow public delete" ON fitness_classes
-  FOR DELETE
-  USING (true);"""
-            
-            st.code(sql_script, language="sql")
-            
-            st.info("""
-            **To set up your database:**
-            
-            1. Go to your Supabase project dashboard
-            2. Click **SQL Editor** → **New Query**
-            3. Copy and paste the SQL script above
-            4. Click **Run**
-            5. Refresh this page
-            """)
-            
-            if st.button("Copy SQL Script"):
-                st.success("SQL script copied to clipboard!")
 
 # Set page config
 st.set_page_config(page_title="Fitness Classes Finder", layout="centered")
 st.title("📍 Find Fitness Classes by Zip Code")
 
-# Initialize Supabase
-try:
-    db = init_supabase()
-except Exception as e:
-    st.error("Failed to connect to Supabase. Please check your secrets.")
+# Sidebar for credentials
+with st.sidebar:
+    st.header("⚙️ Supabase Connection")
+    supabase_url = st.text_input("Supabase URL", type="password", placeholder="https://eewxvxkhrjcfmwrghyrv.supabase.co")
+    supabase_key = st.text_input("Supabase API Key", type="password", placeholder="sb_publishable_UlR6dVtUPozGAl4cJLpAoQ_0QpJO4T5")
+    
+    if st.button("Connect"):
+        st.session_state.connected = True
+
+# Check if connected
+if "connected" not in st.session_state:
+    st.session_state.connected = False
+
+if not st.session_state.connected or not supabase_url or not supabase_key:
+    st.warning("👈 Please enter your Supabase credentials and click 'Connect' to continue")
     st.stop()
 
-# Show setup instructions in sidebar
-show_setup_instructions()
+# Initialize Supabase
+try:
+    db = init_supabase(supabase_url, supabase_key)
+    st.sidebar.success("✅ Connected to Supabase")
+except Exception as e:
+    st.error("Failed to connect to Supabase. Please check your credentials.")
+    st.stop()
 
 # Create tabs for adding and viewing classes
 tab1, tab2 = st.tabs(["Add Class", "View Classes"])
